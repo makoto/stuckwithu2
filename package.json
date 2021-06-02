@@ -5,12 +5,23 @@
   "main": "dist/index.js",
   "source": "src/index.ts",
   "scripts": {
-    "build": "microbundle",
+    "build": "microbundle src/*.ts",
+    "scripts:vote": "node dist/votes.js",
+    "scripts:tokens": "node dist/tokens.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
   "license": "ISC",
   "devDependencies": {
     "microbundle": "^0.13.1"
+  },
+  "dependencies": {
+    "dotenv": "^10.0.0",
+    "eth-ens-namehash": "^2.0.8",
+    "ethers": "^5.3.0",
+    "graphql": "^15.5.0",
+    "graphql-request": "^3.4.0",
+    "lodash": "^4.17.21",
+    "yargs": "^17.0.1"
   }
 }
