@@ -8,6 +8,8 @@
     "build": "microbundle src/*.ts",
     "scripts:vote": "node dist/votes.js",
     "scripts:tokens": "node dist/tokens.js",
+    "scripts:nfts": "node dist/nfts.js",
+    "scripts:chains": "node dist/chains.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",

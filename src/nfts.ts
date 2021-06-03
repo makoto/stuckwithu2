@@ -1,7 +1,6 @@
-
 require('dotenv').config()
 const argv = require('yargs/yargs')(process.argv.slice(2))
-  .option('token', {
+  .option('user', {
     string: true,
     demandOption: true,
   })
@@ -10,21 +9,21 @@ const argv = require('yargs/yargs')(process.argv.slice(2))
 const fs = require('fs');
 // const _ = require('lodash')
 import _ from 'lodash'
-import { getTokenholders } from './utils'
+import { fetchTokenBalances } from './utils'
 
 export const main = async () => {
   let address, limit
-  if(argv.token){
-    address = argv.token
+  if(argv.user){
+    address = argv.user
   }else{
-    throw('--token token address is missing')
+    throw('--token user address is missing')
   }
   if(argv.limit){
     limit = argv.limit
   }
   console.log({address})
-  const holders = await getTokenholders(address)
-  console.log({holders})
+  const balances = await fetchTokenBalances(address)
+  console.log({balances})
 }
 console.log(argv)
 main()
