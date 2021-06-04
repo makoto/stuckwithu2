@@ -44,34 +44,31 @@ export const fetchTransactionCount = async (userAddress, chainId) => {
     throw('Set process.env.C_KEY')
   }
   if(chainId === 100){
-    url = `https://blockscout.com/xdai/mainnet/address-counters?id=${userAddress}`
+    url = `https://blockscout.com/xdai/mainnet/api?module=account&action=txlist&address=${userAddress}`
     try{
       data = await fetch(url)
-      const json = await data.json()
-      return parseInt(json && json.transaction_count)
+      const { result } = await data.json()
+      return result
     }catch(e){
-      return 0
+      console.log('**error', url)
+      return []
     }
   }else{
     url = `https://api.covalenthq.com/v1/${chainId}/address/${userAddress}/transactions_v2/?key=${process.env.C_KEY}`
     data = await fetch(url)
     const { data:{items:items} } = await data.json() 
-    return items.length
+    return items
   }
 }
 
-const fetchChainUsage = async(address) => {
-  const ethereum = await fetchTransactionCount(address, 1)
-  const polygon = await fetchTransactionCount(address, 137)
-  const avalanche = await fetchTransactionCount(address, 43114)
-  const bsc = await fetchTransactionCount(address, 56)
-  const fantom = await fetchTransactionCount(address, 250)    
-  const xdai = await fetchTransactionCount(address, 100)
+export const getChainUsage = async(address) => {
+  const ethereum = (await getOrFetch(`./data/transactions/${1}-${address}.json`, fetchTransactionCount, [address, 1])).length
+  const polygon = (await getOrFetch(`./data/transactions/${137}-${address}.json`, fetchTransactionCount, [address, 137])).length
+  const avalanche = (await getOrFetch(`./data/transactions/${43114}-${address}.json`, fetchTransactionCount, [address, 43114])).length
+  const bsc = (await getOrFetch(`./data/transactions/${56}-${address}.json`, fetchTransactionCount, [address, 56])).length
+  const fantom = (await getOrFetch(`./data/transactions/${250}-${address}.json`, fetchTransactionCount, [address, 250])).length
+  const xdai = (await getOrFetch(`./data/transactions/${100}-${address}.json`, fetchTransactionCount, [address, 100])).length
   return({ address,ethereum,polygon,avalanche,bsc, fantom, xdai })
-}
-
-export const getChainUsage = async(userAddress) => {
-  return getOrFetch(`./data/chains/${userAddress}.json`, fetchChainUsage, userAddress)
 }
 
 export const fetchTokenBalances = async (userAddress) => {
@@ -141,11 +138,11 @@ const fetchTokenholders = async (token_address) => {
   return total_items
 }
 
-const getOrFetch = async(cacheFile, fetchFunc, arg1) => {
+const getOrFetch = async(cacheFile, fetchFunc, args) => {
   if(fs.existsSync(cacheFile)){
     return JSON.parse(fs.readFileSync(cacheFile))
   } else{
-    let data = await fetchFunc(arg1)
+    let data = await fetchFunc(...args)
     fs.writeFileSync(cacheFile, JSON.stringify(data))
     return data
   }
@@ -153,5 +150,5 @@ const getOrFetch = async(cacheFile, fetchFunc, arg1) => {
 
 
 export const getTokenholders = async(tokenAddress) => {
-  return getOrFetch(`./data/coins/${tokenAddress}.json`, fetchTokenholders, tokenAddress)
+  return getOrFetch(`./data/coins/${tokenAddress}.json`, fetchTokenholders, [tokenAddress])
 }
