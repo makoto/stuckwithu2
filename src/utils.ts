@@ -71,33 +71,25 @@ export const getChainUsage = async(address) => {
   return({ address,ethereum,polygon,avalanche,bsc, fantom, xdai })
 }
 
-export const fetchTokenBalances = async (userAddress) => {
+export const fetchNFTs = async (userAddress) => {
+  const {data: { items } } = await getOrFetch(`./data/balances/${userAddress}.json`, fetchTokenBalances, [userAddress])
+  return items.filter(i => !!i.nft_data)
+}
+
+const fetchTokenBalances = async (userAddress) => {
   if(!process.env.C_KEY){
     throw('Set process.env.C_KEY')
   }
   let pageNumber = 0
   let url = `https://api.covalenthq.com/v1/1/address/${userAddress}/balances_v2/?key=${process.env.C_KEY}&nft=true&page-number=${pageNumber}&page-size=100`
-
-  let data = await fetch(url)
-  let {data:{items:items}} = await data.json()
   console.log({url})
-  items.map(i => {
-    if(i.nft_data){
-      const { contract_name, contract_ticker_symbol, nft_data } = i
-      console.log({
-        contract_name, contract_ticker_symbol, nft_data_length:nft_data.length,nft_data:nft_data.map(n => {
-          if(n.external_data){
-            const { name, image, attributes } = n.external_data
-            return {
-              name,image, attributes
-            }  
-          }else{
-            return {}
-          }
-        })
-      })
-    }
-  })
+  try{
+    const data = await fetch(url)
+    return await data.json()  
+  }catch(e){
+    console.log('**error', e)
+    return {data:{items:[]}}
+  }
 }
 
 
