@@ -76,12 +76,13 @@ export const fetchNFTs = async (userAddress) => {
   return items.filter(i => !!i.nft_data)
 }
 
-const fetchTokenBalances = async (userAddress) => {
+const fetchTokenBalances = async (userAddress, chainId = 1) => {
   if(!process.env.C_KEY){
     throw('Set process.env.C_KEY')
   }
   let pageNumber = 0
-  let url = `https://api.covalenthq.com/v1/1/address/${userAddress}/balances_v2/?key=${process.env.C_KEY}&nft=true&page-number=${pageNumber}&page-size=100`
+
+  let url = `https://api.covalenthq.com/v1/${chainId}/address/${userAddress}/balances_v2/?key=${process.env.C_KEY}&nft=true&page-number=${pageNumber}&page-size=100`
   console.log({url})
   try{
     const data = await fetch(url)
@@ -93,7 +94,7 @@ const fetchTokenBalances = async (userAddress) => {
 }
 
 
-const fetchTokenholders = async (token_address) => {
+export const fetchTokenholders = async (token_address) => {
   if(!process.env.C_KEY){
     throw('Set process.env.C_KEY')
   }
@@ -111,26 +112,32 @@ const fetchTokenholders = async (token_address) => {
     })
 
     let data = await fetch(url)
-    console.log({data})
-    let {data:{items:items, pagination:pagination}} = await data.json()
+    let data2
+    try{
+      data2 = await data.json()
+      const {data:{items, pagination}} = data2
 
-    has_more = pagination.has_more
-    pageNumber = pagination.page_number + 1
-    total_count = pagination.total_count
-    let filtered = items.map(i=> {
-      return {
-        balance:parseInt(i.balance),
-        address:i.address
-      }
-    }).filter(i => i.balance > 0 )
-    total_items = [...total_items, ...filtered
-    ]
+      has_more = pagination.has_more
+      pageNumber = pagination.page_number + 1
+      total_count = pagination.total_count
+      let filtered = items.map(i=> {
+        return {
+          balance:parseInt(i.balance),
+          address:i.address
+        }
+      }).filter(i => i.balance > 0 )
+      total_items = [...total_items, ...filtered  ]
+    }catch(e){
+      console.log({e, data2})
+      has_more = false
+    }
+    
   }
   console.log('***total_items', total_items.length, total_count)    
   return total_items
 }
 
-const getOrFetch = async(cacheFile, fetchFunc, args) => {
+export const getOrFetch = async(cacheFile, fetchFunc, args) => {
   if(fs.existsSync(cacheFile)){
     return JSON.parse(fs.readFileSync(cacheFile))
   } else{
