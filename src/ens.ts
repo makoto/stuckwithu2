@@ -1,10 +1,11 @@
 const gr = require('graphql-request')
+import namehash from 'eth-ens-namehash';
 const { request, gql } = gr
 const url = 'https://api.thegraph.com/subgraphs/name/ensdomains/ens'
 require('dotenv').config()
 const argv = require('yargs/yargs')(process.argv.slice(2))
-  .option('user', {
-    string: true,
+  .option('name', {
+    demandOption: true,
   })
   .argv
 
@@ -26,6 +27,7 @@ const REGISTRATIONS_SUBGRAPH_QUERY = gql`
   }
 `
 
+
 export const main = async () => {
   let addresses
   if(argv.csv){
@@ -44,7 +46,6 @@ export const main = async () => {
     throw('need --csv or --json')
   }
 
-  console.log({addresses:addresses.length})
 //   const transactions = []
 //   for (let index = 0; index < addresses.length; index++) {
 //   // for (let index = 0; index < 3; index++) {
@@ -59,47 +60,42 @@ export const main = async () => {
     const spaces = {}
     const reverseNames = {}
     const result = []
+    let registrationCounter = 0
     for (let i = 0; i < chunked.length; i++) {
       // for (let i = 0; i < 2; i++) {
       const element = chunked[i];
-      // console.log(i, element.length)
-      const ensNames = await getEnsData(element)
       
-      // for (let j = 0; j < element.length; j++) {
-      //   const address = element[j];
-      //   const name = ensNames[j];
-      //   if(ensNames[j] !== ''){
-      //     reverseNames[address] = name
-      //   }
-      // }
-      const labelNames = ensNames.map(e => e.split('.')[0] )
+      const ensNames = await getEnsData(element)
+      // console.log({ensNames})
+      for (let j = 0; j < element.length; j++) {
+        const address = element[j];
+        const name = ensNames[j];
+        if(name === '' || !name){
+          console.log(`**** name not found for ${address}`, {name})
+        }
+      }
+      const labelNames = ensNames.map(e => e && e.split('.')[0] ).filter(e => !!e )
       // console.log({labelNames})
       let { registrations } = await request(url, REGISTRATIONS_SUBGRAPH_QUERY, {
         labelNames
       })
+      for (let k = 0; k < ensNames.length; k++) {
+        const name = ensNames[k];
+        const labelName = name && name.split('.')[0]
+        if (!registrations.map(r => r.labelName).includes(labelName)){
+          console.log(`*** ${labelName} for ${[element[k]]} has no registrations`)
+        }        
+      }
       registrations.map(r => {
-        const string =  `${r.registrant.id} , ${r.labelName}.eth , ${r.registrationDate}`
+        const string = [r.registrant.id , `${r.labelName}.eth` , r.registrationDate]
+        // console.log(string)
+        registrationCounter+=1
         result.push(string)
       })
-      // for (let j = 0; j < result.votes.length; j++) {
-      //   const vote = result.votes[j];
-      //   const voter = reverseNames[vote.voter] || vote.voter
-      //   if(voters[voter]){
-      //   voters[voter].push(vote)
-      //   }else{
-      //   voters[voter] = [vote]
-      //   }
-      //   if(spaces[vote.space.id]){
-      //   if(vote.space.id === 'rallygov.eth'){
-      //       console.log({vote})
-      //   }
-      //   spaces[vote.space.id].push(vote)
-      //   }else{
-      //   spaces[vote.space.id] = [vote]
-      //   }
-      // }
+      console.log(i, element.length, registrations.length)
     }
-    console.log(result)
+    console.log({addresses:addresses.length, registrationCounter})
+    fs.writeFileSync(`./data/output/${argv.name}registrationDates.csv`, result.map(i => i.join(',') ).join('\n'))
 }
  
 console.log(argv)
