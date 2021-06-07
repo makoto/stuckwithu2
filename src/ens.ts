@@ -27,6 +27,26 @@ const REGISTRATIONS_SUBGRAPH_QUERY = gql`
   }
 `
 
+const NEW_OWNERS_SUBGRAPH_QUERY = gql`
+  query newOwners($domains: [String]) {
+    newOwners(orderBy:blockNumber, orderDirection:desc, where:{domain_in:$domains}){
+      blockNumber
+      domain{
+        id
+      }
+    }
+  }
+`
+
+const BLOCKS_SUBGRAPH_QUERY = gql`
+  query blocks($blockNumbers:[BigInt]){
+    blocks(where: {number_in: $blockNumbers}) {
+      id
+      number
+      timestamp
+    }
+  }
+`
 
 export const main = async () => {
   let addresses
@@ -58,15 +78,16 @@ export const main = async () => {
     const chunked = _.chunk(addresses, limit)
     const voters = {}
     const spaces = {}
-    const reverseNames = {}
-    const result = []
+    const reverseNames = []
+
     let registrationCounter = 0
+    const addressDict = {}
     for (let i = 0; i < chunked.length; i++) {
       // for (let i = 0; i < 2; i++) {
       const element = chunked[i];
       
       const ensNames = await getEnsData(element)
-      // console.log({ensNames})
+      console.log(`${i} / ${chunked.length}`)
       for (let j = 0; j < element.length; j++) {
         const address = element[j];
         const name = ensNames[j];
@@ -88,13 +109,58 @@ export const main = async () => {
       }
       registrations.map(r => {
         const string = [r.registrant.id , `${r.labelName}.eth` , r.registrationDate]
-        // console.log(string)
+        addressDict[r.registrant.id] = {
+          registrantAddress:r.registrant.id,
+          name:`${r.labelName}.eth`,
+          registrationDate:r.registrationDate
+        }
         registrationCounter+=1
-        result.push(string)
       })
-      console.log(i, element.length, registrations.length)
+
+      const nodes = element.map(a => namehash.hash(a.slice(2).toLowerCase() + ".addr.reverse") )
+      // console.log({nodes})
+      let { newOwners } = await request(url, NEW_OWNERS_SUBGRAPH_QUERY, {
+        domains:nodes
+      })
+      const blockNumbers = _.uniq(newOwners.map(n => n.blockNumber))
+      let { blocks } = await request('https://api.thegraph.com/subgraphs/name/blocklytics/ethereum-blocks', BLOCKS_SUBGRAPH_QUERY, {
+        blockNumbers
+      })
+
+      
+      const blocksDict = _.groupBy(blocks, 'number');
+      // console.log({blocksDict})
+      for (let l = 0; l < nodes.length; l++) {
+        const node = nodes[l];
+        const address = element[l].toLowerCase();
+        const newOwner = newOwners.filter(n => {
+          return n.domain.id === node
+        })
+        
+        const blockNumber = newOwner && newOwner.length > 0 && newOwner[0].blockNumber
+        let r = {address, node:nodes[l], reverseRecordSetBlockNumber:blockNumber, reverseRecordSetAt: blocksDict[blockNumber] && blocksDict[blockNumber][0].timestamp}
+        // console.log(r)
+        if(addressDict[address]){
+          addressDict[address]= {...addressDict[address], ...r}
+        }else{
+          addressDict[address] = r
+        }
+        
+        reverseNames.push(r)
+      }
+
+      // console.log({i, blockNumbers})
+      // console.log(i, element.length, registrations.length)
     }
-    console.log({addresses:addresses.length, registrationCounter})
+    console.log({addresses:addresses.length, reverseNamesLength:reverseNames.length})
+    console.log({addressDict})
+    // console.log({addresses:addresses.length, registrationCounter})
+    const result = Object.values(addressDict).filter((a:any) => !!a.address ).map((r:any) => {
+        return [ r.address, r.reverseRecordSetAt, r.registrationDate, r.name ]
+    })
+
+
+    console.log({addresses:addresses.length, result:result.length})
     fs.writeFileSync(`./data/output/${argv.name}registrationDates.csv`, result.map(i => i.join(',') ).join('\n'))
 }
  
